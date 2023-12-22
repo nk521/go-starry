@@ -6,6 +6,7 @@ import (
 
 	config "github.com/nk521/go-starry/config"
 	log "github.com/nk521/go-starry/log"
+	"github.com/nk521/go-starry/util"
 	ytm "github.com/nk521/go-starry/youtube_music"
 	"github.com/spf13/cobra"
 )
@@ -22,20 +23,19 @@ var cookieCmd = &cobra.Command{
 	Use:   "cookie",
 	Short: "Set cookie if not already set!",
 	Run: func(cmd *cobra.Command, args []string) {
-		ytm.Login()
+		ytm.GetCookie()
 	},
-}
-
-var resetCmd = &cobra.Command{
-	Use:   "reset",
-	Short: "Resets starry!",
 }
 
 var configCmd = &cobra.Command{
 	Use:   "config",
 	Short: "Show configs",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(config.GetConfig())
+		fmt.Printf("config.GetRawConfig().ConfigFileUsed(): %v\n", config.GetRawConfig().ConfigFileUsed())
+		err := util.OpenEditor(config.GetRawConfig().ConfigFileUsed())
+		if err != nil {
+			log.Panicln(err)
+		}
 	},
 }
 
@@ -50,8 +50,6 @@ func init() {
 	cobra.OnInitialize()
 
 	rootCmd.AddCommand(cookieCmd)
-	rootCmd.AddCommand(resetCmd)
 	rootCmd.AddCommand(configCmd)
-	cookieCmd.PersistentFlags().String("username", "", "Initiates the login process!")
 
 }

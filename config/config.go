@@ -44,9 +44,6 @@ func GetRawConfig() *viper.Viper {
 
 func SaveRawConfig() error {
 	os.Remove(raw_starry_conf.ConfigFileUsed())
-	// if err != nil {
-	// 	_ = err
-	// }
 
 	err := raw_starry_conf.SafeWriteConfig()
 	if err != nil {
@@ -72,7 +69,6 @@ func UnmarshalToStruct() {
 }
 
 func Initialize() {
-
 	raw_starry_conf = viper.New()
 	raw_starry_conf.SetConfigName("starry_config")
 	raw_starry_conf.AddConfigPath(".")
@@ -85,7 +81,6 @@ func Initialize() {
 		log.Fatalf("Error while reading config file %s", err)
 	}
 
-	// fmt.Println(raw_starry_conf)
 	UnmarshalToStruct()
 }
 
