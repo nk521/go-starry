@@ -6,6 +6,8 @@ import (
 
 	config "github.com/nk521/go-starry/config"
 	log "github.com/nk521/go-starry/log"
+	"github.com/nk521/go-starry/tui"
+
 	"github.com/nk521/go-starry/util"
 	ytm "github.com/nk521/go-starry/youtube_music"
 	"github.com/spf13/cobra"
@@ -16,6 +18,7 @@ var rootCmd = &cobra.Command{
 	Short: "Youtube Music but for your terminal!",
 	Run: func(cmd *cobra.Command, args []string) {
 		log.Debug("Starting starry...")
+		tui.RednerTUI()
 	},
 }
 
