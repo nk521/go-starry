@@ -22,11 +22,11 @@ var rootCmd = &cobra.Command{
 	},
 }
 
-var cookieCmd = &cobra.Command{
-	Use:   "cookie",
-	Short: "Set cookie if not already set!",
+var headerCmd = &cobra.Command{
+	Use:   "headers",
+	Short: "Set headers in config!",
 	Run: func(cmd *cobra.Command, args []string) {
-		ytm.GetCookie()
+		ytm.GetHeaders()
 	},
 }
 
@@ -52,7 +52,7 @@ func Execute() {
 func init() {
 	cobra.OnInitialize()
 
-	rootCmd.AddCommand(cookieCmd)
+	rootCmd.AddCommand(headerCmd)
 	rootCmd.AddCommand(configCmd)
 
 }

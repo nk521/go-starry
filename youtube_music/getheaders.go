@@ -10,8 +10,8 @@ import (
 	config "github.com/nk521/go-starry/config"
 )
 
-func GetCookie() {
-	p := tea.NewProgram(getCookieModel())
+func GetHeaders() {
+	p := tea.NewProgram(getHeaderModel())
 	if _, err := p.Run(); err != nil {
 		log.Fatal(err)
 	}
@@ -26,16 +26,17 @@ type model struct {
 	err       error
 }
 
-func getCookieModel() model {
+func getHeaderModel() model {
 	ti := textinput.New()
-	ti.Placeholder = "Paste your cookies here ..."
-	curr_cookies := config.GetConfig().Login.Cookies
-	if len(curr_cookies) > 0 {
-		ti.Placeholder = "You already have cookies -> " + curr_cookies
+	ti.Placeholder = "Paste your headers here ..."
+	curr_headers := config.GetConfig().Login.Headers
+	if len(curr_headers) > 0 {
+		ti.Placeholder = "You already have headers -> " + curr_headers
 	}
 	ti.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#D1345B")).Italic(true).Faint(true)
 	ti.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#D1345B"))
 	ti.Focus()
+	ti.CharLimit = 0
 
 	return model{
 		textInput: ti,
@@ -51,12 +52,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
+	// case tea.WindowSizeMsg:
+	// m.textInput.SetWidth(msg.Width)
 	case tea.KeyMsg:
 		switch msg.Type {
-		case tea.KeyEnter:
-			cookie := m.textInput.Value()
-			if len(cookie) > 0 {
-				config.SetRawConfig("login.cookies", cookie)
+		case tea.KeyCtrlD:
+			headers := m.textInput.Value()
+			if len(headers) > 0 {
+				config.SetRawConfig("login.headers", headers)
 				err := config.SaveRawConfig()
 				if err != nil {
 					log.Panicln(err)
@@ -80,14 +83,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	new := lipgloss.NewStyle().Foreground(lipgloss.Color("#D1345B")).Italic(true)
 	return fmt.Sprintf(
-		"Follow the given steps ...\n"+
-			"1. Install "+new.Render("cookie-editor (https://github.com/Moustachauve/cookie-editor)")+" plugin on your browser.\n"+
-			"2. Open a logged in session of Youtube Music.\n"+
-			"3. Click on the plugin and then click on 'Export' on bottom right.\n"+
-			"4. Click on 'Header String'.\n"+
-			"5. This will copy the Cookies to your clipboard.\n"+
-			"6. Paste that here ...\n\n%s\n\n%s",
+		"Please paste the request headers from Firefox ...\n\n%s\n\n%s",
 		m.textInput.View(),
-		"(Press "+new.Render("Esc")+" to quit!)",
+		"(Press "+new.Render("Esc")+" to quit! (No changes will be done to config))",
 	) + "\n"
 }

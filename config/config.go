@@ -22,7 +22,7 @@ type player struct {
 	LastSong string `mapstructure:"last_song"`
 }
 type login struct {
-	Cookies string `mapstructure:"cookies"`
+	Headers string `mapstructure:"headers"`
 }
 type meta struct {
 	IsLoggedIn bool   `mapstructure:"is_logged_in"`

@@ -1,7 +1,7 @@
 package youtube_music
 
 import (
-	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,50 +14,122 @@ import (
 	log "github.com/nk521/go-starry/log"
 )
 
+var (
+	YTM_DOMAIN     = "https://music.youtube.com"
+	YTM_BASE_API   = YTM_DOMAIN + "/youtubei/v1/"
+	YTM_PARAMS     = "?alt=json"
+	YTM_PARAMS_KEY = "&key=AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30"
+	USER_AGENT     = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0"
+)
+
 type YoutubeMusicManager struct {
-	Client *http.Client
+	Client    *http.Client
+	CookieJar *cookiejar.Jar
+	Headers   *http.Header
+	Context   map[string]map[string]map[string]string
+	sapisid   string
 }
 
-func (ymm YoutubeMusicManager) _send_request(url string, data string, post bool) {
-	calltype := "GET"
-	if post {
-		calltype = "POST"
-	}
-	req, err := http.NewRequest(calltype, url, strings.NewReader(data))
+func (ymm YoutubeMusicManager) sendGETRequest(url string, params map[string]string) *http.Response {
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		log.Panicln(err)
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0")
-	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
-	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
-	req.Header.Set("Connection", "keep-alive")
-	// req.Header.Set("Cookie", config.GetConfig().Login.Cookies)
+
+	q := req.URL.Query()
+	for k, v := range params {
+		q.Add(k, v)
+	}
+	req.URL.RawQuery = q.Encode()
+
+	req.Header = *ymm.Headers
+
+	resp, err := ymm.Client.Do(req)
+	if err != nil {
+		log.Panicln(err)
+	}
+	return resp
+}
+
+func (ymm YoutubeMusicManager) sendPOSTRequest(endpoint string, body map[string]string, additional_params string) []byte {
+	params := YTM_PARAMS + YTM_PARAMS_KEY
+	origin := ymm.Headers.Get("origin")
+	if origin == "" {
+		ymm.Headers.Get("x-origin")
+	}
+	ymm.Headers.Set("authorization", getAuthorization(ymm.sapisid+" "+origin))
+
+	jsonStr, err := json.Marshal(body)
+	if err != nil {
+		log.Panicln(err)
+	}
+	req, err := http.NewRequest(http.MethodPost, YTM_BASE_API+endpoint+params+additional_params, strings.NewReader(string(jsonStr)))
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	req.Header = *ymm.Headers
 
 	resp, err := ymm.Client.Do(req)
 	if err != nil {
 		log.Panicln(err)
 	}
 
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
-	fmt.Printf("bytes.Index(body, []byte(\"Can You Hear\")): %v\n", bytes.Index(body, []byte("Can You Hear")))
-	fmt.Println(resp.Cookies())
-}
-
-func Login() {
-	y := YoutubeMusicManager{}
-	jar, err := cookiejar.New(nil)
-
-	// parsing cookies to be of type http.Cookie
-	header := http.Header{}
-	header.Add("Cookie", config.GetConfig().Login.Cookies)
-	req := http.Request{Header: header}
-
-	_url, _ := url.Parse("https://music.youtube.com")
-	jar.SetCookies(_url, req.Cookies())
-	if err != nil {
-		log.Panicln(err)
+	if resp.StatusCode >= 400 {
+		log.Panicln(fmt.Errorf("got %s @ %s", resp.Status, req.URL.String()))
 	}
-	y.Client = &http.Client{Jar: jar}
-	y._send_request("https://music.youtube.com/", "", false)
+
+	defer resp.Body.Close()
+	response_body, _ := io.ReadAll(resp.Body)
+
+	return response_body
 }
+
+func (ymm YoutubeMusicManager) Login() error {
+	_, _ = ymm.Client.Get("")
+
+	return nil
+}
+
+// func (ymm YoutubeMusicManager) prepareHeaders() error {
+// 	return nil
+// }
+
+func (ymm YoutubeMusicManager) Init() {
+	// set headers
+	{
+		ymm.Headers.Set("User-Agent", USER_AGENT)
+		ymm.Headers.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
+		ymm.Headers.Set("Accept-Language", "en-US,en;q=0.5")
+		ymm.Headers.Set("Connection", "keep-alive")
+	}
+
+	// make cookie jar
+	{
+		cookies := config.GetConfig().Login.Headers
+		if len(cookies) <= 0 {
+			log.Panicln(fmt.Errorf("please provide cookies in `%s`", config.GetRawConfig().ConfigFileUsed()))
+		}
+
+		header := http.Header{}
+		config.GetConfig().Login.Headers += ";SOCS=CAI"
+		header.Add("Cookie", config.GetConfig().Login.Headers)
+		req := http.Request{Header: header}
+		_url, _ := url.Parse("https://music.youtube.com")
+
+		_cookie_jar, err := cookiejar.New(nil)
+		if err != nil {
+			log.Panicln(err)
+		}
+		ymm.CookieJar = _cookie_jar
+		ymm.CookieJar.SetCookies(_url, req.Cookies())
+	}
+
+	// init context
+	ymm.Context = initContext()
+
+	// and finally, the client
+	ymm.Client = &http.Client{Jar: ymm.CookieJar}
+}
+
+// func (ymm YoutubeMusicManager) get() error {
