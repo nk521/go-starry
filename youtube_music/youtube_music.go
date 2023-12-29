@@ -12,6 +12,7 @@ import (
 
 	"github.com/nk521/go-starry/config"
 	log "github.com/nk521/go-starry/log"
+	"github.com/nk521/go-starry/util"
 )
 
 var (
@@ -23,11 +24,12 @@ var (
 )
 
 type YoutubeMusicManager struct {
-	Client    *http.Client
-	CookieJar *cookiejar.Jar
-	Headers   *http.Header
-	Context   map[string]map[string]map[string]string
-	sapisid   string
+	Client        *http.Client
+	CookieJar     *cookiejar.Jar
+	HeaderCookies string
+	Headers       *http.Header
+	Context       map[string]map[string]map[string]string
+	sapisid       string
 }
 
 func (ymm YoutubeMusicManager) sendGETRequest(url string, params map[string]string) *http.Response {
@@ -91,45 +93,36 @@ func (ymm YoutubeMusicManager) Login() error {
 	return nil
 }
 
-// func (ymm YoutubeMusicManager) prepareHeaders() error {
-// 	return nil
-// }
-
 func (ymm YoutubeMusicManager) Init() {
 	// set headers
-	{
-		ymm.Headers.Set("User-Agent", USER_AGENT)
-		ymm.Headers.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
-		ymm.Headers.Set("Accept-Language", "en-US,en;q=0.5")
-		ymm.Headers.Set("Connection", "keep-alive")
-	}
+	ymm.Headers = util.ParseHeadersFromString(config.GetConfig().Login.Headers)
+
+	cookie := ymm.Headers.Get("Cookie")
+	ymm.sapisid = sapisidFromCookie(cookie)
 
 	// make cookie jar
 	{
-		cookies := config.GetConfig().Login.Headers
-		if len(cookies) <= 0 {
-			log.Panicln(fmt.Errorf("please provide cookies in `%s`", config.GetRawConfig().ConfigFileUsed()))
-		}
-
-		header := http.Header{}
-		config.GetConfig().Login.Headers += ";SOCS=CAI"
-		header.Add("Cookie", config.GetConfig().Login.Headers)
-		req := http.Request{Header: header}
-		_url, _ := url.Parse("https://music.youtube.com")
-
+		_url, _ := url.Parse(YTM_DOMAIN)
 		_cookie_jar, err := cookiejar.New(nil)
 		if err != nil {
 			log.Panicln(err)
 		}
 		ymm.CookieJar = _cookie_jar
-		ymm.CookieJar.SetCookies(_url, req.Cookies())
+		ymm.CookieJar.SetCookies(_url, []*http.Cookie{{Name: "SOCS", Value: "CAI"}})
 	}
 
 	// init context
 	ymm.Context = initContext()
+	ymm.Context["context"]["client"]["hl"] = "en"
 
 	// and finally, the client
 	ymm.Client = &http.Client{Jar: ymm.CookieJar}
 }
 
-// func (ymm YoutubeMusicManager) get() error {
+// func (ymm YoutubeMusicManager) getVisitorId() []byte {
+// 	resp := ymm.sendGETRequest(YTM_DOMAIN, nil)
+// 	defer resp.Body.Close()
+// 	response_body, _ := io.ReadAll(resp.Body)
+
+// 	return response_body
+// }

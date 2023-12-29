@@ -3,23 +3,18 @@ package youtube_music
 import (
 	"crypto/sha1"
 	"encoding/hex"
-	"errors"
 	"net/http"
-	"net/url"
 	"strconv"
 	"time"
 )
 
-func sapisidFromCookie(client *http.Client) (string, error) {
-	_url, _ := url.Parse("https://music.youtube.com")
-	for _, cookie := range client.Jar.Cookies(_url) {
-		if cookie.Name == "__Secure-3PAPISID" {
-			return cookie.Value, nil
-		}
-	}
+func sapisidFromCookie(cookie string) string {
+	header := http.Header{}
+	header.Add("Cookie", cookie)
+	request := http.Request{Header: header}
 
-	return "", errors.New("couldn't find sapisid cookie in browser cookies! please run `starry cookie` again")
-
+	cookieval, _ := request.Cookie("__Secure-3PAPISID")
+	return cookieval.Value
 }
 
 func initContext() map[string]map[string]map[string]string {
@@ -33,8 +28,6 @@ func initContext() map[string]map[string]map[string]string {
 		},
 	}
 }
-
-// func getVisitorId
 
 func getAuthorization(auth string) string {
 	h := sha1.New()
