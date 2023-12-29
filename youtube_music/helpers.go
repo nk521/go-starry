@@ -17,14 +17,15 @@ func sapisidFromCookie(cookie string) string {
 	return cookieval.Value
 }
 
-func initContext() map[string]map[string]map[string]string {
-	return map[string]map[string]map[string]string{
-		"context": {
-			"client": {
+func initContext() map[string]interface{} {
+	return map[string]interface{}{
+		"context": map[string]interface{}{
+			"client": map[string]interface{}{
 				"clientName":    "WEB_REMIX",
-				"clientVersion": "1." + ".01.00",
+				"clientVersion": "1.20231229.01.00",
+				"hl":            "en",
 			},
-			"user": {},
+			"user": map[string]interface{}{},
 		},
 	}
 }

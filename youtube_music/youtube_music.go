@@ -6,13 +6,14 @@ import (
 	"io"
 	"net/http"
 	"net/http/cookiejar"
-	"net/url"
 
 	"strings"
 
 	"github.com/nk521/go-starry/config"
 	log "github.com/nk521/go-starry/log"
 	"github.com/nk521/go-starry/util"
+	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 )
 
 var (
@@ -28,7 +29,7 @@ type YoutubeMusicManager struct {
 	CookieJar     *cookiejar.Jar
 	HeaderCookies string
 	Headers       *http.Header
-	Context       map[string]map[string]map[string]string
+	Context       map[string]interface{}
 	sapisid       string
 }
 
@@ -44,7 +45,7 @@ func (ymm YoutubeMusicManager) sendGETRequest(url string, params map[string]stri
 	}
 	req.URL.RawQuery = q.Encode()
 
-	req.Header = *ymm.Headers
+	req.Header = ymm.Headers.Clone()
 
 	resp, err := ymm.Client.Do(req)
 	if err != nil {
@@ -53,13 +54,11 @@ func (ymm YoutubeMusicManager) sendGETRequest(url string, params map[string]stri
 	return resp
 }
 
-func (ymm YoutubeMusicManager) sendPOSTRequest(endpoint string, body map[string]string, additional_params string) []byte {
+func (ymm YoutubeMusicManager) sendPOSTRequest(endpoint string, body map[string]interface{}, additional_params string) []byte {
 	params := YTM_PARAMS + YTM_PARAMS_KEY
-	origin := ymm.Headers.Get("origin")
-	if origin == "" {
-		ymm.Headers.Get("x-origin")
-	}
-	ymm.Headers.Set("authorization", getAuthorization(ymm.sapisid+" "+origin))
+	_ = params
+
+	maps.Copy(body, ymm.Context)
 
 	jsonStr, err := json.Marshal(body)
 	if err != nil {
@@ -70,7 +69,14 @@ func (ymm YoutubeMusicManager) sendPOSTRequest(endpoint string, body map[string]
 		log.Panicln(err)
 	}
 
-	req.Header = *ymm.Headers
+	req.Header = ymm.Headers.Clone()
+	origin := req.Header.Get("origin")
+	if origin == "" {
+		origin = req.Header.Get("x-origin")
+	}
+	req.Header.Set("authorization", getAuthorization(ymm.sapisid+" "+origin))
+
+	req.AddCookie(&http.Cookie{Name: "SOCS", Value: "CAI"})
 
 	resp, err := ymm.Client.Do(req)
 	if err != nil {
@@ -93,30 +99,50 @@ func (ymm YoutubeMusicManager) Login() error {
 	return nil
 }
 
-func (ymm YoutubeMusicManager) Init() {
+func NewYoutubeMusicManager() *YoutubeMusicManager {
+	ymm := YoutubeMusicManager{}
+	ymm.Headers = &http.Header{}
 	// set headers
-	ymm.Headers = util.ParseHeadersFromString(config.GetConfig().Login.Headers)
+	to_delete := []string{"host", "content-length", "accept-encoding"}
+	_headers := util.ParseHeadersFromString(config.GetConfig().Login.Headers)
+
+	for k, v := range *_headers {
+		_k := strings.ToLower(k)
+		// if !(strings.HasPrefix(_k, "sec") && slices.Contains(to_delete, _k)) {
+		if !slices.Contains(to_delete, _k) {
+			ymm.Headers.Set(k, v[0])
+		}
+
+	}
+
+	// for x, _ := range *ymm.Headers {
+	// 	x = strings.ToLower(x)
+	// 	if strings.HasPrefix(x, "sec") {
+	// 		to_delete = append(to_delete, x)
+	// 	}
+	// }
+
+	// for _, v := range to_delete {
+	// 	ymm.Headers.Del(v)
+	// }
+
+	ymm.Headers.Set("user-agent", USER_AGENT)
+	ymm.Headers.Set("accept", "*/*")
+	ymm.Headers.Set("accept-encoding", "gzip, deflate")
+	ymm.Headers.Set("content-type", "application/json")
+	ymm.Headers.Set("content-encoding", "gzip")
+	ymm.Headers.Set("origin", YTM_DOMAIN)
 
 	cookie := ymm.Headers.Get("Cookie")
 	ymm.sapisid = sapisidFromCookie(cookie)
 
-	// make cookie jar
-	{
-		_url, _ := url.Parse(YTM_DOMAIN)
-		_cookie_jar, err := cookiejar.New(nil)
-		if err != nil {
-			log.Panicln(err)
-		}
-		ymm.CookieJar = _cookie_jar
-		ymm.CookieJar.SetCookies(_url, []*http.Cookie{{Name: "SOCS", Value: "CAI"}})
-	}
-
 	// init context
 	ymm.Context = initContext()
-	ymm.Context["context"]["client"]["hl"] = "en"
 
 	// and finally, the client
-	ymm.Client = &http.Client{Jar: ymm.CookieJar}
+	ymm.Client = &http.Client{}
+
+	return &ymm
 }
 
 // func (ymm YoutubeMusicManager) getVisitorId() []byte {
@@ -126,3 +152,11 @@ func (ymm YoutubeMusicManager) Init() {
 
 // 	return response_body
 // }
+
+func (ymm YoutubeMusicManager) GetHomePage(limit int) {
+	endpoint := "browse"
+	body := map[string]interface{}{"browseId": "FEmusic_home"}
+	response := ymm.sendPOSTRequest(endpoint, body, "")
+
+	_ = response
+}
