@@ -108,23 +108,11 @@ func NewYoutubeMusicManager() *YoutubeMusicManager {
 
 	for k, v := range *_headers {
 		_k := strings.ToLower(k)
-		// if !(strings.HasPrefix(_k, "sec") && slices.Contains(to_delete, _k)) {
-		if !slices.Contains(to_delete, _k) {
+		if !(strings.HasPrefix(_k, "sec") && slices.Contains(to_delete, _k)) {
 			ymm.Headers.Set(k, v[0])
 		}
 
 	}
-
-	// for x, _ := range *ymm.Headers {
-	// 	x = strings.ToLower(x)
-	// 	if strings.HasPrefix(x, "sec") {
-	// 		to_delete = append(to_delete, x)
-	// 	}
-	// }
-
-	// for _, v := range to_delete {
-	// 	ymm.Headers.Del(v)
-	// }
 
 	ymm.Headers.Set("user-agent", USER_AGENT)
 	ymm.Headers.Set("accept", "*/*")
@@ -144,14 +132,6 @@ func NewYoutubeMusicManager() *YoutubeMusicManager {
 
 	return &ymm
 }
-
-// func (ymm YoutubeMusicManager) getVisitorId() []byte {
-// 	resp := ymm.sendGETRequest(YTM_DOMAIN, nil)
-// 	defer resp.Body.Close()
-// 	response_body, _ := io.ReadAll(resp.Body)
-
-// 	return response_body
-// }
 
 func (ymm YoutubeMusicManager) GetHomePage(limit int) {
 	endpoint := "browse"
